@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# compile linuxcnc
+
+CFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+CPPFLAGS="${CFLAGS}"
+WRKDIR="/home/pi"
+
+
+function error() {
+    echo "[ERROR]: $1 failed" 1>&2
+    exit 1
+}
+
+# ----------------------------
+# create workdir
+[[ -d "${WRKDIR}" ]] || { log "mkdir: ${WRKDIR}" ; mkdir -p "${WRKDIR}"  || error "mkdir" ; }
+cd "${WRKDIR}" || error "cd"
+
+# get sources
+echo "getting LinuxCNC sources"
+[[ -d "linuxcnc-dev" ]] || git clone --depth=1 --recursive https://github.com/LinuxCNC/linuxcnc.git linuxcnc-dev || error "git clone"
+
+# configure
+echo "building LinuxCNC..."
+cd "linuxcnc-dev/src" || error "cd"
+./autogen.sh || error "./autogen.sh"
+if [[ "${BUILD_GUI}" = "true" ]] ; then
+    confargs=("--with-x" "--enable-gtk")
+else
+    confargs=("--without-x" "--disable-gtk")
+fi
+./configure "${confargs[@]}" --with-realtime=uspace --enable-toolnml || error "configure"
+# fix man pages being built outside "docs" target, needs asciidoc (~800MB)
+# simply fake a2x executable and don't build .adoc man pages
+sudo touch /usr/bin/a2x ; sudo chmod +x /usr/bin/a2x
+# build
+make || error "make"
+sudo make setuid || error "make suid"
+# activate environment
+. "../scripts/rip-environment"

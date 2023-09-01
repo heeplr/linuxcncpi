@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# setup machinekit
+
+CMAKE_VERSION="3.22.6"
+WRKDIR="${RPI_WORKDIR}/rt-kernel"
+OLDPWD="${PWD}"
+
+# ----------------------------
+# create workdir
+[[ -d "${WRKDIR}" ]] || { log "mkdir: ${WRKDIR}" ; mkdir -p "${WRKDIR}"  || error "mkdir" ; }
+cd "${WRKDIR}" || error "cd"
+
+# compile cmake
+wget "https://cmake.org/files/v${CMAKE_VERSION%.*}/cmake-${CMAKE_VERSION}.tar.gz" || error "wget failed"
+tar -xvzf cmake*.tar.gz || error "untar failed"
+cd "cmake-${CMAKE_VERSION}" || error "cd"
+./bootstrap
+make
+sudo make install
+cd -
+
+# compile machinekit
+git clone --recursive --depth=1 https://github.com/machinekit/machinekit-hal.git
+cd machinekit-hal
+mk-build-deps -irs sudo
+./debian/bootstrap
+mkdir build
+cd build
+cmake ..

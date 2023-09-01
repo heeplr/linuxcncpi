@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# build realtime kernel
+
+KERNEL_BRANCH="rpi-6.1.y"
+KERNEL_COMMIT="216be50e5d1531e0a1c21447446917a166f2d180"
+PATCH_VERSION="6.1.46-rt14-rc1"
+ARCHITECTURE="aarch64"
+ARCH="arm64"
+VENDOR="unknown"
+OS="linux"
+LIBC="gnueabi"
+TARGET="${ARCHITECTURE}-${VENDOR}-${OS}-${LIBC}"
+KCFLAGS="-march=armv8-a+crc -mtune=cortex-a72"
+KCPPFLAGS="${KCFLAGS}"
+WRKDIR="${RPI_WORKDIR}/rt-kernel"
+OLDPWD="${PWD}"
+
+# ----------------------------
+# create workdir
+[[ -d "${WRKDIR}" ]] || { log "mkdir: ${WRKDIR}" ; mkdir -p "${WRKDIR}"  || error "mkdir" ; }
+cd "${WRKDIR}" || error "cd"
+
+# check for gcc
+which "${TARGET}-gcc" >/dev/null || error "no cross gcc found. run: \"crossdev ${TARGET}\""
+
+# get kernel build tools
+log "  getting raspberry build tools"
+[[ -d "tools" ]] || git clone --depth=1 https://github.com/raspberrypi/tools.git || error "git clone tools"
+# get kernel sources
+log "  getting kernel sources"
+[[ -d "linux" ]] || {
+    mkdir "linux" || error "mkdir"
+    cd "linux" || error "cd linux"
+    # do git limbo to clone just a single, specific commit
+    git init --initial-branch="${KERNEL_BRANCH}" || error "git init"
+    git remote add origin https://github.com/raspberrypi/linux || error "git remote add"
+    git fetch --depth 1 origin "${KERNEL_COMMIT}" || error "git fetch"
+    git checkout FETCH_HEAD
+    cd .. || error "cd .."
+}
+# get RT_PREEMPT patch
+# https://wiki.linuxfoundation.org/realtime/documentation/howto/applications/preemptrt_setup
+log "downloading RT_PREEMPT patch..."
+wget --quiet --no-clobber "https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/6.1/patch-${PATCH_VERSION}.patch.xz" || error "wget"
+
+# apply RT_PREEMPT patch
+log "applying RT_PREEMPT patch..."
+cd "linux" || error "cd failed"
+# patch already applied?
+if grep --quiet "ARCH_SUPPORTS_RT" "arch/arm/Kconfig" ; then
+    log " already patched."
+else
+    log "  patching kernel"
+    xzcat "../patch-${PATCH_VERSION}.patch.xz" | patch --force --silent -p1 || error "xzcat | patch"
+fi
+
+# configure cross compiling
+export ARCH
+export KCFLAGS
+export KCPPFLAGS
+export CROSS_COMPILE="${TARGET}-"
+export INSTALL_MOD_PATH="${RPI_ROOT}"
+export INSTALL_DTBS_PATH="${WRKDIR}"
+
+# create defconfig
+log "creating BCM2711 (RPi4) default config..."
+make -j4 bcm2711_defconfig
+
+# patch config
+log "patching kernel config..."
+[[ -d "${RPI_DISTDIR}/kernel-config" ]] && {
+    for patchfile in "${RPI_DISTDIR}/kernel-config/"*.patch ; do
+        log "    ${patchfile}"
+        patch --force --silent ".config" < "${patchfile}" || error "patch ${patchfile}"
+    done
+}
+# compile
+make -j4 Image.gz || error "make Image.gz"
+make -j4 modules || error "make modules"
+make -j4 dtbs || error "make dtbs"
+make -j4 modules_install || error "make modules_install"
+
+# copy kernel to image
+cp arch/arm64/boot/Image.gz "${RPI_BOOT}/kernel8.img"
+cp arch/arm64/boot/dts/overlays/*.dtbo "${RPI_BOOT}/overlays/"
+cp arch/arm64/boot/dts/broadcom/*.dtb "${RPI_BOOT}/"
+
+
+# change back to original dir
+cd "${OLDPWD}" || error "cd \$OLDPWD failed"
