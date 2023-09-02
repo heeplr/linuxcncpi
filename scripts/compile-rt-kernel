@@ -65,7 +65,7 @@ export INSTALL_DTBS_PATH="${WRKDIR}"
 
 # create defconfig
 log "creating BCM2711 (RPi4) default config..."
-make -j4 bcm2711_defconfig
+make bcm2711_defconfig
 
 # patch config
 log "patching kernel config..."
