@@ -25,8 +25,8 @@ cd "${WRKDIR}" || error "cd"
 which "${TARGET}-gcc" >/dev/null || error "no cross gcc found. run: \"crossdev ${TARGET}\""
 
 # get kernel build tools
-log "  getting raspberry build tools"
-[[ -d "tools" ]] || git clone --depth=1 https://github.com/raspberrypi/tools.git || error "git clone tools"
+#log "  getting raspberry build tools"
+#[[ -d "tools" ]] || git clone --depth=1 https://github.com/raspberrypi/tools.git || error "git clone tools"
 # get kernel sources
 log "  getting kernel sources"
 [[ -d "linux" ]] || {
