@@ -79,7 +79,7 @@ log "patching kernel config..."
 make -j4 Image.gz || error "make Image.gz"
 make -j4 modules || error "make modules"
 make -j4 dtbs || error "make dtbs"
-make -j4 modules_install || error "make modules_install"
+sudo make -j4 modules_install || error "make modules_install"
 
 # copy kernel to image
 cp arch/arm64/boot/Image.gz "${RPI_BOOT}/kernel8.img"
