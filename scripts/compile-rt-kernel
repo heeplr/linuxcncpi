@@ -22,7 +22,7 @@ OLDPWD="${PWD}"
 cd "${WRKDIR}" || error "cd"
 
 # check for gcc
-which "${TARGET}-gcc" >/dev/null || error "no cross gcc found. run: \"crossdev ${TARGET}\""
+which "${TARGET}-gcc" >/dev/null || error "no cross gcc found. run: \"crossdev ${TARGET}\" or \"apt install gcc-aarch64-linux-gnu\""
 
 # get kernel build tools
 #log "  getting raspberry build tools"
@@ -79,7 +79,7 @@ log "patching kernel config..."
 make -j4 Image.gz || error "make Image.gz"
 make -j4 modules || error "make modules"
 make -j4 dtbs || error "make dtbs"
-sudo make -j4 modules_install || error "make modules_install"
+sudo INSTALL_MOD_PATH="${INSTALL_MOD_PATH}" make -j4 modules_install || error "make modules_install"
 
 # copy kernel to image
 cp arch/arm64/boot/Image.gz "${RPI_BOOT}/kernel8.img"
