@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# enable presentation mode
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/presentation-mode -T
+
+# disable screensaver
+xset s off
+xset s noblank
